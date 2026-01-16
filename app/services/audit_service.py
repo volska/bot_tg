@@ -1,39 +1,41 @@
-from app.domain.enums import UserMode, ScreenCode
-from app.domain.models import UserState
-from app.storage.db import DB
-
-class UserStateRepo:
+class AuditService:
     def __init__(self, db: DB):
         self._db = db
 
-    async def get_or_create(self, user_id: int) -> UserState:
-        async with self._db.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT user_id, mode, screen FROM user_state WHERE user_id=$1",
-                user_id,
-            )
-            if row:
-                return UserState(
-                    user_id=int(row["user_id"]),
-                    mode=UserMode(row["mode"]),
-                    screen=ScreenCode(row["screen"]),
+    async def log(
+        self,
+        *,
+        user_id: int | None,
+        event_type: str,
+        payload: dict | None,
+        mode_before: UserMode | None,
+        screen_before: ScreenCode | None,
+        mode_after: UserMode | None,
+        screen_after: ScreenCode | None,
+        result: str,
+        error_code: str | None = None,
+    ) -> None:
+        with self._db.conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO audit_events(
+                        user_id, event_type, payload,
+                        mode_before, screen_before, mode_after, screen_after,
+                        result, error_code
+                    )
+                    VALUES (%s, %s, %s::jsonb, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        user_id,
+                        event_type,
+                        json.dumps(payload or {}),
+                        (mode_before.value if mode_before else None),
+                        (screen_before.value if screen_before else None),
+                        (mode_after.value if mode_after else None),
+                        (screen_after.value if screen_after else None),
+                        result,
+                        error_code,
+                    ),
                 )
-
-            await conn.execute(
-                "INSERT INTO user_state(user_id, mode, screen) VALUES ($1, 'NONE', 'MENU')",
-                user_id,
-            )
-            return UserState(user_id=user_id, mode=UserMode.NONE, screen=ScreenCode.MENU)
-
-    async def set(self, user_id: int, mode: UserMode, screen: ScreenCode) -> None:
-        async with self._db.pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO user_state(user_id, mode, screen, updated_at)
-                VALUES ($1, $2, $3, now())
-                ON CONFLICT (user_id) DO UPDATE SET mode=EXCLUDED.mode, screen=EXCLUDED.screen, updated_at=now()
-                """,
-                user_id,
-                mode.value,
-                screen.value,
-            )
+                conn.commit()
