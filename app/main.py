@@ -1,3 +1,4 @@
+WEBHOOK_PATH = "/telegram/webhook"
 import os
 from aiohttp import web
 
@@ -74,4 +75,5 @@ def main() -> None:
 if __name__ == "__main__":
 
     main()
+
 
