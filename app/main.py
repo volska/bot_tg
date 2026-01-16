@@ -65,7 +65,7 @@ def create_app() -> web.Application:
     # health endpoint for UptimeRobot
     app.router.add_get("/health", health)
 
-    # webhook endpoint (ручной, без SimpleRequestHandler)
+    app.router.add_get(app["webhook_path"], lambda r: web.Response(text="WEBHOOK OK"))
     app.router.add_post(app["webhook_path"], telegram_webhook)
 
     async def connect_db(app: web.Application) -> None:
@@ -86,3 +86,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
