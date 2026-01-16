@@ -1,3 +1,7 @@
+import json
+from app.domain.enums import UserMode, ScreenCode
+from app.storage.db import DB
+
 class AuditService:
     def __init__(self, db: DB):
         self._db = db
@@ -39,3 +43,4 @@ class AuditService:
                     ),
                 )
                 conn.commit()
+
